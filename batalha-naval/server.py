@@ -18,7 +18,7 @@ def random_orientation():
     return (horizontal, 1 - horizontal)
 
 
-def place_ship(board, ship, orientation):
+def place_random_ship(board, ship, orientation):
     """ Posiciona um navio randomicamente no tabuleiro. """
 
     horizontal, vertical = orientation
@@ -29,16 +29,12 @@ def place_ship(board, ship, orientation):
         col = random.randint(0, len(board[0]) - 1)
 
         for s in range(ship['size']):
-            r = row + s * horizontal
-            c = col + s * vertical
+            r = row + s * vertical
+            c = col + s * horizontal
 
-            # Se já existe algum navio posicionado, ou
-            # o navio não cabe.
-            fail = (r >= len(board) or
-                    c >= len(board[0]) or
-                    board[r][c] != '-')
+            if (r >= len(board) or c >= len(board[0]) or
+                board[r][c] != '-'):
 
-            if fail:
                 break
             elif s == ship['size']-1:
                 fit = True
@@ -46,37 +42,41 @@ def place_ship(board, ship, orientation):
     # Se o navio couber na posição dada, ele é posicionado.
     if fit:
         for s in range(ship['size']):
-            r = row + s * horizontal
-            c = col + s * vertical
+            r = row + s * vertical
+            c = col + s * horizontal
             board[r][c] = ship['symbol']
             
             
 def random_board(ships, num_ships, board_size):
     """ Cria um novo tabuleiro, posicionando os navios
-
     de forma randômica.
+    
+    @param ships tipos de navios
+    @param num_ships quantidade de navios
+    @param board_size tamanho do tabuleiro
+
     @return matriz representando o tabuleiro.
     """
     
     board = [['-'] * board_size for i in range(board_size)]
 
-    # Posiciona Porta-Aviões
-    place_ship(board, ships['P'], random_orientation())
+    # Posiciona Porta-Avião.
+    place_random_ship(board, ships['P'], random_orientation())
 
-    # Posiciona Navios-Tanque
-    place_ship(board, ships['T'], random_orientation())
-    place_ship(board, ships['T'], random_orientation())
+    # Posiciona Navios-Tanque.
+    place_random_ship(board, ships['T'], random_orientation())
+    place_random_ship(board, ships['T'], random_orientation())
 
-    # Posiciona Contratorpedeiros
-    place_ship(board, ships['C'], random_orientation())
-    place_ship(board, ships['C'], random_orientation())
-    place_ship(board, ships['C'], random_orientation())
+    # Posiciona Contratorpedeiros.
+    place_random_ship(board, ships['C'], random_orientation())
+    place_random_ship(board, ships['C'], random_orientation())
+    place_random_ship(board, ships['C'], random_orientation())
 
-    # Posiciona submarinos
-    place_ship(board, ships['S'], random_orientation())
-    place_ship(board, ships['S'], random_orientation())
-    place_ship(board, ships['S'], random_orientation())
-    place_ship(board, ships['S'], random_orientation())
+    # Posiciona submarinos.
+    place_random_ship(board, ships['S'], random_orientation())
+    place_random_ship(board, ships['S'], random_orientation())
+    place_random_ship(board, ships['S'], random_orientation())
+    place_random_ship(board, ships['S'], random_orientation())
 
     return board
 
@@ -96,20 +96,20 @@ def prepare_game(conn, client):
         'S': {'symbol': 's', 'name': 'Submarino', 'size': 2}
     }
 
+    # Parâmetros do jogo.
     board_size = 10
     num_ships = 10
-    
-    show_board = random_board(ships, num_ships, board_size)
-    player_board = random_board(ships, num_ships, board_size)
+
+    # Tabuleiro de jogo referente ao servidor.
     server_board = random_board(ships, num_ships, board_size)
 
-    data = json.dumps({
-        'show_board': show_board,
-        'player_board': player_board,
-        'enemy_board': server_board
-    }).encode()
+    # Tabuleiro do jogador.
+    player_board = [['-'] * board_size] * board_size
+    server_hits = 0
 
     # Enviando dados iniciais para cliente.
+    data = json.dumps(ships).encode()
+
     conn.send(struct.pack('!I', board_size))
     conn.send(struct.pack('!I', num_ships))
     conn.send(struct.pack('!I', len(data)))
