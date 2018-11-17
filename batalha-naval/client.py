@@ -3,7 +3,7 @@ import json
 import socket
 import struct
 
-def print_game(num_ships, boards, player_hits, enemy_hits):
+def print_game(ships, num_ships, boards, player_hits, enemy_hits):
     """ Mostra na tela o estado atual do jogo. """
     column = 'A'
 
@@ -21,6 +21,12 @@ def print_game(num_ships, boards, player_hits, enemy_hits):
     # Imprime a quantidade de navios afundados
     print('O inimigo tem {} afundado(s)'.format(player_hits))
     print('Você tem {} afundado(s)\n'.format(enemy_hits))
+
+    for _, ship in ships.items():
+        print('-> {}: {}'.format(ship['symbol'], ship['name']))
+    print('-> -: Posição válida')
+    print('-> *: Falha')
+    print('-> x: Acerto\n')
 
 
 def place_ship(board, board_size, ship):
@@ -108,6 +114,7 @@ def new_board(ships, num_ships, board_size):
 def start_game():
     """ Inicializa conexão com o servidor, para novo jogo. """
     
+    print('{} Batalha Naval {}\n'.format('=' * 30, '=' * 30))
     host = input('Insira o IP do servidor: ')
     port = int(input('Insira a porta para conexão: '))
 
@@ -133,13 +140,14 @@ def start_game():
 
     # Tabuleiro do jogador.
     player_board = new_board(ships, num_ships, board_size)
+    print_game(
+        ships,
+        num_ships,
+        {'player': player_board, 'enemy': enemy_board},
+        player_hits, enemy_hits
+    )
     
-    print('{} Batalha Naval {}'.format('=' * 30, '=' * 30))
-
-    print_game(num_ships, {'player': player_board, 'enemy': enemy_board},
-               player_hits, enemy_hits)
     winner = None
-
     while not winner:
         pass
     
