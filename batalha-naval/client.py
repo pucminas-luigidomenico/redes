@@ -3,8 +3,18 @@ import json
 import socket
 import struct
 
-def print_game(ships, num_ships, boards, player_hits, enemy_hits):
-    """ Mostra na tela o estado atual do jogo. """
+# Local
+import common
+
+def print_game(ships, num_ships, boards, hits):
+    """ Mostra na tela o estado atual do jogo. 
+    
+    @param ships tipos de navios.
+    @param num_ships quantidade de navios.
+    @param boards tabuleiros (inimigo e jogador).
+    @param hits acertos (inimigo e jogador).
+    """
+    
     column = 'A'
 
     print('\nTabuleiro Inimigo\t\t\tMeu Tabuleiro')
@@ -13,14 +23,14 @@ def print_game(ships, num_ships, boards, player_hits, enemy_hits):
     rows = '  '.join([str(i) for i in range(1, num_ships + 1)])
     print('  {}\t\t  {}'.format(rows, rows))
     
-    for (enemy_row, player_row) in zip(boards['enemy'], boards['player']):
+    for enemy_row, player_row in zip(boards['enemy'], boards['player']):
         print(column + ' ' + '  '.join(enemy_row) + '\t\t' +
               column + ' ' + '  '.join(player_row))
         column = chr(ord(column) + 1)
 
     # Imprime a quantidade de navios afundados
-    print('O inimigo tem {} afundado(s)'.format(player_hits))
-    print('Você tem {} afundado(s)\n'.format(enemy_hits))
+    print('O inimigo tem {} afundado(s)'.format(hits['player']))
+    print('Você tem {} afundado(s)\n'.format(hits['enemy']))
 
     for _, ship in ships.items():
         print('-> {}: {}'.format(ship['symbol'], ship['name']))
@@ -43,7 +53,7 @@ def get_row(board_size):
     while not valid_pos:
         try:
             row = (input('Escolha uma linha (A-J): '))
-            row = row[0].upper()
+            row = row.upper()
 
             if ord(row) < ord('A') or ord(row) >= ord('A') + board_size:
                 raise Exception()
@@ -94,7 +104,7 @@ def get_direction():
     while not valid_dir:
         try:
             d = input('Insira a direção (Horizontal: H, Vertical: V): ')
-            d = d[0].upper()
+            d = d.upper()
 
             if d not in ['H', 'V']:
                 raise Exception()
@@ -111,29 +121,30 @@ def get_coord(board_size):
 
     @param board_size tamanho do tabuleiro.
 
-    @return tupla contendo três elementos: linha, coluna e direção.
+    @return tupla contendo dois elementos: linha e coluna.
     """
     
     i = get_row(board_size)
     j = get_column(board_size)
-    d = get_direction()
 
-    return (i, j, d)
+    return (i, j)
 
 
 def place_ship(board, board_size, ship):
     """ Posiciona navio no tabuleiro, de acordo
     com posição informada pelo jogador. 
 
-    @param board tabuleiro
-    @param ship tipo de navio
+    @param board tabuleiro.
+    @param ship tipo de navio.
     """
 
     fit = False
     positions = []
     
     while not fit:
-        row, col, direction = get_coord(board_size)
+        row, col = get_coord(board_size)
+        direction = get_direction()
+        
         for s in range(ship['size']):
             r = row + s * (1 - direction)
             c = col + s * direction
@@ -159,9 +170,9 @@ def new_board(ships, num_ships, board_size):
     """ Cria um novo tabuleiro, de acordo com as escolhas
     do jogador.
 
-    @param ships tipos de navios
-    @param num_ships quantidade de navios
-    @param board_size tamanho do tabuleiro
+    @param ships tipos de navios.
+    @param num_ships quantidade de navios.
+    @param board_size tamanho do tabuleiro.
     
     @return matriz representando o tabuleiro.
     """
@@ -190,7 +201,7 @@ def new_board(ships, num_ships, board_size):
     return board
 
 
-def start_game():
+def prepare_game():
     """ Inicializa conexão com o servidor, para novo jogo. """
     
     print('{} Batalha Naval {}\n'.format('=' * 30, '=' * 30))
@@ -214,24 +225,52 @@ def start_game():
 
     # Tabuleiro inimigo.
     enemy_board = [['-'] * board_size] * board_size
-    player_hits = 0
-    enemy_hits = 0
+    hits = {'player': 0, 'enemy': 0}
 
     # Tabuleiro do jogador.
     player_board = new_board(ships, num_ships, board_size)
-    print_game(
-        ships,
-        num_ships,
-        {'player': player_board, 'enemy': enemy_board},
-        player_hits, enemy_hits
-    )
+
+    # Dicionário contendo ambos os tabuleiros.
+    boards = {'player': player_board, 'enemy': enemy_board}
+
+    print('\n\nMarquinhos Gameplay: Comeeeeeeeeça o jogo!', end='')
+    start_game(client, ships, num_ships, boards, board_size, hits)
+
     
+def start_game(conn, ships, num_ships, boards, board_size, hits):
+    # Rodada inicial: jogador.
+    turn = common.Turn.PLAYER
     winner = None
+
     while not winner:
-        pass
-    
-    client.close()
+        while turn == common.Turn.PLAYER:
+            # Rodada do jogador.
+            print_game(ships, num_ships, boards, hits)
+            row, col = get_coord(board_size)
 
+            # Envia ao servidor a jogada.
+            data = json.dumps({'row': row, 'col': col}).encode()
+            conn.send(struct.pack('!I', len(data)))
+            conn.send(data)
+            
+            # Recebe resultado da jogada.
+            res, = struct.unpack('!I', conn.recv(4))
+            res = common.MoveStatus(res)
 
+            if res == common.MoveStatus.HIT:
+                print('Acerto em ({}, {})'.format(
+                    chr(ord('A') + row),
+                    col + 1
+                ))
+                boards['enemy'][row][col] = 'x'
+                hits['player'] += 1
+            else:
+                turn = common.Turn.SERVER
+
+        # Turno do inimigo (servidor).
+        while turn == common.Turn.SERVER:
+            pass
+
+        
 if __name__ == '__main__':
-    start_game()
+    prepare_game()

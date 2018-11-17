@@ -6,6 +6,7 @@ import struct
 import threading
 
 # Local
+import common
 import util
     
 def random_orientation():
@@ -81,7 +82,7 @@ def random_board(ships, num_ships, board_size):
     return board
 
 
-def prepare_game(conn, client):
+def prepare_game(conn):
     """ Realiza todos os preparativos necessários para
     o início de um novo jogo.
 
@@ -103,10 +104,6 @@ def prepare_game(conn, client):
     # Tabuleiro de jogo referente ao servidor.
     server_board = random_board(ships, num_ships, board_size)
 
-    # Tabuleiro do jogador.
-    player_board = [['-'] * board_size] * board_size
-    server_hits = 0
-
     # Enviando dados iniciais para cliente.
     data = json.dumps(ships).encode()
 
@@ -114,9 +111,31 @@ def prepare_game(conn, client):
     conn.send(struct.pack('!I', num_ships))
     conn.send(struct.pack('!I', len(data)))
     conn.send(data)
-    conn.close()
-    
 
+    start_game(conn, server_board, board_size, ships, num_ships)
+
+    
+def start_game(conn, server_board, board_size, ships, num_ships):
+    # Turno inicial: jogador.
+    turn = common.Turn.PLAYER
+    winner = None
+    
+    while not winner:
+        while turn == common.Turn.PLAYER:
+            length, = struct.unpack('!I', conn.recv(4))
+            data = json.loads(conn.recv(length).decode())
+            row, col = data.values()
+
+            print('O BRODI ALI TENTOU: {} {}'.format(row, col))
+            res = common.make_move(server_board, row, col)
+            conn.send(struct.pack('!I', res.value))
+
+            if res != common.MoveStatus.HIT:
+                turn = common.Turn.SERVER
+
+        print('AGORA EH O SERVER BEBE')
+    
+    
 def start_server():
     """ Inicializa o servidor e espera por conexões. Quando
     uma conexão é feita, cria uma nova thread específica
@@ -143,7 +162,8 @@ def start_server():
     # Inicia a escuta por possíveis conexões
     while True:
         conn, client = server.accept()
-        threading.Thread(target=prepare_game, args=(conn, client)).start()
+        print('{} conectado. Preparando novo jogo...'.format(client[0]))
+        threading.Thread(target=prepare_game, args=(conn, )).start()
 
 
 if __name__ == '__main__':
