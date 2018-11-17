@@ -29,6 +29,98 @@ def print_game(ships, num_ships, boards, player_hits, enemy_hits):
     print('-> x: Acerto\n')
 
 
+def get_row(board_size):
+    """ Retorna uma linha válida do tabuleiro, de acordo
+    com a posição informada pelo jogador. 
+
+    @param board_size tamanho do tabuleiro.
+
+    @return inteiro representando a linha.
+    """
+    
+    row = 'A'
+    valid_pos = False
+    while not valid_pos:
+        try:
+            row = (input('Escolha uma linha (A-J): '))
+            row = row[0].upper()
+
+            if ord(row) < ord('A') or ord(row) >= ord('A') + board_size:
+                raise Exception()
+
+            valid_pos = True
+        except Exception:
+            print('Caractere Inválido')
+
+    return ord(row) - ord('A')
+
+
+def get_column(board_size):
+    """ Retorna uma coluna válida do tabuleiro, de acordo
+    com a posição informada pelo jogador. 
+    
+    @param board_size tamanho do tabuleiro.
+
+    @param inteiro representando a coluna.
+    """
+    
+    col = 0
+    valid_pos = False
+    while not valid_pos:
+        try:
+            col = int(input('Escolha uma coluna (1-10): '))
+
+            if col < 1 or col >= 1 + board_size:
+                raise Exception()
+            
+            valid_pos = True
+        except ValueError:
+            print('Valor Inválido.')
+        except Exception:
+            print('Valor fora do Limite.')
+
+    return col - 1
+    
+
+def get_direction():
+    """ Retorna a orientação em que será colocado o navio (horizontal
+    ou vertical).
+
+    @return inteiro representando a direção, sendo 1 para horizontal e
+    0 para vertical.
+    """
+    
+    valid_dir = False
+    while not valid_dir:
+        try:
+            d = input('Insira a direção (Horizontal: H, Vertical: V): ')
+            d = d[0].upper()
+
+            if d not in ['H', 'V']:
+                raise Exception()
+
+            valid_dir = True
+        except Exception:
+            print('Direção inválida!')
+            
+    return 1 if d == 'H' else 0
+
+
+def get_coord(board_size):
+    """ Retorna a coordenada informada pelo jogador. 
+
+    @param board_size tamanho do tabuleiro.
+
+    @return tupla contendo três elementos: linha, coluna e direção.
+    """
+    
+    i = get_row(board_size)
+    j = get_column(board_size)
+    d = get_direction()
+
+    return (i, j, d)
+
+
 def place_ship(board, board_size, ship):
     """ Posiciona navio no tabuleiro, de acordo
     com posição informada pelo jogador. 
@@ -41,24 +133,10 @@ def place_ship(board, board_size, ship):
     positions = []
     
     while not fit:
-        try:
-            pos = input('Insira a posição separando com espaço (e.g.: A 3): ')
-            row, col = pos.split(' ')
-            row = ord(row.upper()) - ord('A')
-            col = int(col) - 1
-
-            direction = input('Insira a direção (Horizontal: H, Vertical: V): ').upper()
-
-            if not direction:
-                raise Exception
-        except:
-            print('Opção inválida!')
-            continue
-    
-        horizontal, vertical = (direction == 'H', direction == 'V')
+        row, col, direction = get_coord(board_size)
         for s in range(ship['size']):
-            r = row + s * vertical
-            c = col + s * horizontal
+            r = row + s * (1 - direction)
+            c = col + s * direction
 
             if (r >= len(board) or c >= len(board[0]) or
                 board[r][c] != '-'):
@@ -66,7 +144,8 @@ def place_ship(board, board_size, ship):
                 break
             elif s == ship['size'] - 1:
                 fit = True
-                positions = [(row + vertical * i, col + horizontal * i)
+                positions = [(row + (1 - direction) * i,
+                              col + direction * i)
                              for i in range(ship['size'])]
 
         if not fit:
