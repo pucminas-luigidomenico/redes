@@ -6,7 +6,6 @@ import struct
 import threading
 
 # Local
-import common
 import util
     
 def random_orientation():
@@ -19,7 +18,7 @@ def random_orientation():
     return (horizontal, 1 - horizontal)
 
 
-def place_random_ship(board, ship, orientation):
+def place_random_ship(board, ship, ship_number, orientation):
     """ Posiciona um navio randomicamente no tabuleiro. """
 
     horizontal, vertical = orientation
@@ -45,7 +44,7 @@ def place_random_ship(board, ship, orientation):
         for s in range(ship['size']):
             r = row + s * vertical
             c = col + s * horizontal
-            board[r][c] = ship['symbol']
+            board[r][c] = ship['symbol'] + str(ship_number)
             
             
 def random_board(ships, num_ships, board_size):
@@ -59,25 +58,16 @@ def random_board(ships, num_ships, board_size):
     @return matriz representando o tabuleiro.
     """
     
-    board = [['-'] * board_size for i in range(board_size)]
+    board = [['-' for _ in range(board_size)]
+             for _ in range(board_size)]
 
-    # Posiciona Porta-Avião.
-    place_random_ship(board, ships['P'], random_orientation())
-
-    # Posiciona Navios-Tanque.
-    place_random_ship(board, ships['T'], random_orientation())
-    place_random_ship(board, ships['T'], random_orientation())
-
-    # Posiciona Contratorpedeiros.
-    place_random_ship(board, ships['C'], random_orientation())
-    place_random_ship(board, ships['C'], random_orientation())
-    place_random_ship(board, ships['C'], random_orientation())
-
-    # Posiciona submarinos.
-    place_random_ship(board, ships['S'], random_orientation())
-    place_random_ship(board, ships['S'], random_orientation())
-    place_random_ship(board, ships['S'], random_orientation())
-    place_random_ship(board, ships['S'], random_orientation())
+    for key, ship in ships.items():
+        # Posiciona navio de acordo com tipo.
+        for i in range(ship['quantity']):
+            place_random_ship(
+                board, ships[key],
+                (i + 1), random_orientation()
+            )
 
     return board
 
@@ -91,10 +81,14 @@ def prepare_game(conn):
     """
 
     ships = {
-        'P': {'symbol': 'p', 'name': 'Porta Aviões', 'size': 5},
-        'T': {'symbol': 't', 'name': 'Navio Tanque', 'size': 4},
-        'C': {'symbol': 'c', 'name': 'Contratorpedeiro', 'size': 3},
-        'S': {'symbol': 's', 'name': 'Submarino', 'size': 2}
+        'P': {'symbol': 'p', 'name': 'Porta Aviões',
+              'size': 5, 'quantity': 1},
+        'T': {'symbol': 't', 'name': 'Navio Tanque',
+              'size': 4, 'quantity': 2},
+        'C': {'symbol': 'c', 'name': 'Contratorpedeiro',
+              'size': 3, 'quantity': 3},
+        'S': {'symbol': 's', 'name': 'Submarino',
+              'size': 2, 'quantity': 4}
     }
 
     # Parâmetros do jogo.
@@ -102,7 +96,7 @@ def prepare_game(conn):
     num_ships = 10
 
     # Tabuleiro de jogo referente ao servidor.
-    server_board = random_board(ships, num_ships, board_size)
+    enemy_board = random_board(ships, num_ships, board_size)
 
     # Enviando dados iniciais para cliente.
     data = json.dumps(ships).encode()
@@ -112,29 +106,100 @@ def prepare_game(conn):
     conn.send(struct.pack('!I', len(data)))
     conn.send(data)
 
-    start_game(conn, server_board, board_size, ships, num_ships)
+    length, = struct.unpack('!I', conn.recv(4))
+    player_board = json.loads(conn.recv(length).decode())
+    print(enemy_board)
+
+    boards = {'player': player_board, 'enemy': enemy_board}
+    start_game(conn, boards, board_size, ships, num_ships)
 
     
-def start_game(conn, server_board, board_size, ships, num_ships):
+def random_coord(board_size):
+    i = random.randint(0, board_size - 1)
+    j = random.randint(0, board_size - 1)
+
+    return (i, j)
+
+
+def make_move(board, row, col):
+    """ Faz a jogada no tabuleiro e retorna o resultado. """
+    
+    res = util.MoveStatus.HIT
+    if board[row][col] == '-':
+        res = util.MoveStatus.MISS
+    elif board[row][col] == '*' or board[row][col] == 'x':
+        res = util.MoveStatus.INVALID
+
+    return res
+
+    
+def start_game(conn, boards, board_size, ships, num_ships):
     # Turno inicial: jogador.
-    turn = common.Turn.PLAYER
-    winner = None
-    
-    while not winner:
-        while turn == common.Turn.PLAYER:
+    turn = util.Turn.PLAYER
+    winner = util.Winner.NONE
+    hits = {'player': 0, 'enemy': 0}
+
+    hits_needed = 0
+    for _, ship in ships.items():
+        hits_needed += ship['quantity'] * ship['size']
+
+    while winner == util.Winner.NONE:
+        while turn == util.Turn.PLAYER:
             length, = struct.unpack('!I', conn.recv(4))
-            data = json.loads(conn.recv(length).decode())
-            row, col = data.values()
+            i, j = json.loads(conn.recv(length).decode()).values()
+            res = make_move(boards['enemy'], i, j)
 
-            print('O BRODI ALI TENTOU: {} {}'.format(row, col))
-            res = common.make_move(server_board, row, col)
             conn.send(struct.pack('!I', res.value))
+            if res == util.MoveStatus.HIT:
+                hits['player'] += 1
+            else:
+                turn = util.Turn.ENEMY
 
-            if res != common.MoveStatus.HIT:
-                turn = common.Turn.SERVER
+            data = json.dumps(hits).encode()
+            conn.send(struct.pack('!I', len(data)))
+            conn.send(data)
 
-        print('AGORA EH O SERVER BEBE')
-    
+            if hits['player'] == hits_needed:
+                winner = util.Winner.PLAYER
+                conn.send(struct.pack('!I', winner.value))
+                break
+            else:
+                conn.send(struct.pack('!I', winner.value))
+
+            conn.send(struct.pack('!I', turn.value))
+        
+        while turn == util.Turn.ENEMY:
+            i, j = random_coord(board_size)
+            res = make_move(boards['player'], i, j)
+            
+            data = json.dumps({'row': i, 'col': j}).encode()
+            conn.send(struct.pack('!I', len(data)))
+            conn.send(data)
+            
+            print(res)
+            print(res.value)
+            conn.send(struct.pack('!I', res.value))
+            if res == util.MoveStatus.HIT:
+                hits['enemy'] += 1
+                # TODO: Continuar da posição
+            else:
+                turn = util.Turn.PLAYER
+                
+            data = json.dumps(hits).encode()
+            conn.send(struct.pack('!I', len(data)))
+            conn.send(data)
+
+            if hits['enemy'] == hits_needed:
+                winner = util.Winner.ENEMY
+                conn.send(struct.pack('!I', winner.value))
+                break
+            else:
+                conn.send(struct.pack('!I', winner.value))
+
+            conn.send(struct.pack('!I', turn.value))
+
+    conn.close()
+
     
 def start_server():
     """ Inicializa o servidor e espera por conexões. Quando
@@ -143,7 +208,7 @@ def start_server():
     """
     
     host = util.get_address()
-    port = int(input('Insira a porta de conexão: '))
+    port = int(input('Porta: '))
 
     # Cria o socket do servnameor, declarando a família do protocolo
     # através do parâmetro AF_INET, bem como o protocolo TCP,

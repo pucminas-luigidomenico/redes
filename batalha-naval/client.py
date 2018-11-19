@@ -4,7 +4,7 @@ import socket
 import struct
 
 # Local
-import common
+import util
 
 def print_game(ships, num_ships, boards, hits):
     """ Mostra na tela o estado atual do jogo. 
@@ -20,17 +20,22 @@ def print_game(ships, num_ships, boards, hits):
     print('\nTabuleiro Inimigo\t\t\tMeu Tabuleiro')
 
     # Imprime os tabuleiros do inimigo e do jogador
-    rows = '  '.join([str(i) for i in range(1, num_ships + 1)])
-    print('  {}\t\t  {}'.format(rows, rows))
+    enemy_rows = '  '.join([str(i) for i in range(1, num_ships + 1)])
+    player_rows = '   '.join([str(i) for i in range(1, num_ships + 1)])
+    print('  {}\t\t  {}'.format(enemy_rows, player_rows))
     
     for enemy_row, player_row in zip(boards['enemy'], boards['player']):
+        player_row = list(map(
+            lambda x: '- ' if x == '-' else x,
+            player_row
+        ))
         print(column + ' ' + '  '.join(enemy_row) + '\t\t' +
               column + ' ' + '  '.join(player_row))
         column = chr(ord(column) + 1)
 
     # Imprime a quantidade de navios afundados
-    print('O inimigo tem {} afundado(s)'.format(hits['player']))
-    print('Você tem {} afundado(s)\n'.format(hits['enemy']))
+    print('O inimigo tem {} acerto(s)'.format(hits['enemy']))
+    print('Você tem {} acerto(s)\n'.format(hits['player']))
 
     for _, ship in ships.items():
         print('-> {}: {}'.format(ship['symbol'], ship['name']))
@@ -130,7 +135,7 @@ def get_coord(board_size):
     return (i, j)
 
 
-def place_ship(board, board_size, ship):
+def place_ship(board, board_size, ship, ship_number):
     """ Posiciona navio no tabuleiro, de acordo
     com posição informada pelo jogador. 
 
@@ -163,7 +168,7 @@ def place_ship(board, board_size, ship):
             print('Posição inválida!')
 
     for i, j in positions:
-        board[i][j] = ship['symbol']
+        board[i][j] = ship['symbol'] + str(ship_number)
         
     
 def new_board(ships, num_ships, board_size):
@@ -177,49 +182,22 @@ def new_board(ships, num_ships, board_size):
     @return matriz representando o tabuleiro.
     """
 
-    enemy_board = [['-'] * board_size for i in range(board_size)]
-    player_board = [['-'] * board_size for i in range(board_size)]
+    enemy_board = [['-' for _ in range(board_size)]
+                   for _ in range(board_size)]
+    player_board = [['-' for _ in range(board_size)]
+                    for _ in range(board_size)]
 
-    # Posiciona Porta-Avião.
-    print('\nPosicionando porta-avião')
-    place_ship(player_board, board_size, ships['P'])
-    print_game(
-        ships, num_ships,
-        {'player': player_board, 'enemy': enemy_board},
-        {'player': 0, 'enemy': 0}
-    )
+    for key, ship in ships.items():
+        # Posiciona navio de acordo com tipo.
+        for i in range(ship['quantity']):
+            place_ship(player_board, board_size, ships[key], (i + 1))
+            print_game(
+                ships, num_ships,
+                {'player': player_board, 'enemy': enemy_board},
+                {'player': 0, 'enemy': 0}
+            )
     
-    # Posiciona Navios-Tanque.
-    for i in range(1, 3):
-        print('\nPosicionando navio-tanque nº {}'.format(i))
-        place_ship(player_board, board_size, ships['T'])
-        print_game(
-            ships, num_ships,
-            {'player': player_board, 'enemy': enemy_board},
-            {'player': 0, 'enemy': 0}
-        )
-        
-    # Posiciona Contratorpedeiros.
-    for i in range(1, 4):
-        print('\nPosicionando contratorpedeiro nº {}'.format(i))
-        place_ship(player_board, board_size, ships['C'])
-        print_game(
-            ships, num_ships,
-            {'player': player_board, 'enemy': enemy_board},
-            {'player': 0, 'enemy': 0}
-        )
-
-    # Posiciona Submarinos.
-    for i in range(1, 5):
-        print('\nPosicionando submarino nº {}'.format(i))
-        place_ship(player_board, board_size, ships['S'])
-        print_game(
-            ships, num_ships,
-            {'player': player_board, 'enemy': enemy_board},
-            {'player': 0, 'enemy': 0}
-        )
-    
-    return board
+    return player_board
 
 
 def prepare_game():
@@ -245,8 +223,8 @@ def prepare_game():
     ships = json.loads(client.recv(length).decode())
 
     # Tabuleiro inimigo.
-    enemy_board = [['-'] * board_size] * board_size
-    hits = {'player': 0, 'enemy': 0}
+    enemy_board = [['-' for _ in range(board_size)]
+                   for _ in range(board_size)]
 
     # Tabuleiro do jogador.
     player_board = new_board(ships, num_ships, board_size)
@@ -254,44 +232,65 @@ def prepare_game():
     # Dicionário contendo ambos os tabuleiros.
     boards = {'player': player_board, 'enemy': enemy_board}
 
-    print('\n\nMarquinhos Gameplay: Comeeeeeeeeça o jogo!', end='')
-    start_game(client, ships, num_ships, boards, board_size, hits)
-
+    # Enviando tabuleiro do jogador para o servidor.
+    data = json.dumps(boards['player']).encode()
+    client.send(struct.pack('!I', len(data)))
+    client.send(data)
     
-def start_game(conn, ships, num_ships, boards, board_size, hits):
+    print('\n\nMarquinhos Gameplay: Comeeeeeeeeça o jogo!')
+    start_game(client, ships, num_ships, boards, board_size)
+
+
+def start_game(conn, ships, num_ships, boards, board_size):
     # Rodada inicial: jogador.
-    turn = common.Turn.PLAYER
-    winner = None
-
-    while not winner:
-        while turn == common.Turn.PLAYER:
-            # Rodada do jogador.
-            print_game(ships, num_ships, boards, hits)
-            row, col = get_coord(board_size)
-
-            # Envia ao servidor a jogada.
-            data = json.dumps({'row': row, 'col': col}).encode()
+    turn = util.Turn.PLAYER
+    winner = util.Winner.NONE
+        
+    while winner == util.Winner.NONE:
+        if turn == util.Turn.PLAYER:
+            i, j = get_coord(board_size)
+            data = json.dumps({'row': i, 'col': j}).encode()
             conn.send(struct.pack('!I', len(data)))
             conn.send(data)
-            
-            # Recebe resultado da jogada.
-            res, = struct.unpack('!I', conn.recv(4))
-            res = common.MoveStatus(res)
 
-            if res == common.MoveStatus.HIT:
-                print('Acerto em ({}, {})'.format(
-                    chr(ord('A') + row),
-                    col + 1
-                ))
-                boards['enemy'][row][col] = 'x'
-                hits['player'] += 1
+            # Lê o resultado do movimento.
+            data, = struct.unpack('!I', conn.recv(4))
+            res = util.MoveStatus(data)
+
+            print('Resultado da sua jogada: {}'.format(
+                util.MoveResult[res]
+            ))
+
+            if res == util.MoveStatus.HIT:
+                boards['enemy'][i][j] = 'x'
             else:
-                turn = common.Turn.SERVER
+                boards['enemy'][i][j] = '*'
+        else:
+            # Lê o resultado do movimento.
+            length, = struct.unpack('!I', conn.recv(4))
+            i, j = json.loads(conn.recv(length).decode()).values()
+            
+            data, = struct.unpack('!I', conn.recv(4))
+            res = util.MoveStatus(data)
 
-        # Turno do inimigo (servidor).
-        while turn == common.Turn.SERVER:
-            pass
+            print('Resultado da jogada inimiga: {}'.format(
+                util.MoveResult[res]
+            ))
+            
+            if res == util.MoveStatus.HIT:
+                boards['player'][i][j] = 'x '
+            else:
+                boards['player'][i][j] = '* '
+        
+        length, = struct.unpack('!I', conn.recv(4))
+        hits = json.loads(conn.recv(length).decode())
+        print_game(ships, num_ships, boards, hits)
 
+        data, = struct.unpack('!I', conn.recv(4))
+        winner = util.Winner(data)
+
+        data, = struct.unpack('!I', conn.recv(4))
+        turn = util.Turn(data)
         
 if __name__ == '__main__':
     prepare_game()

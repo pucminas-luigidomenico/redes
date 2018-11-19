@@ -1,4 +1,15 @@
 import socket
+import enum
+
+Turn = enum.Enum('Turn', 'ENEMY PLAYER')
+MoveStatus = enum.Enum('MoveStatus', 'HIT MISS')
+
+MoveResult = {
+    MoveStatus.HIT: 'Acerto',
+    MoveStatus.MISS: 'Erro',
+}
+
+Winner = enum.Enum('Winner', 'NONE SERVER PLAYER')
 
 def get_address():
     """ Retorna o endereço IP local da máquina . """
