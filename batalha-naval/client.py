@@ -176,27 +176,48 @@ def new_board(ships, num_ships, board_size):
     
     @return matriz representando o tabuleiro.
     """
-    
-    board = [['-'] * board_size for i in range(board_size)]
+
+    enemy_board = [['-'] * board_size for i in range(board_size)]
+    player_board = [['-'] * board_size for i in range(board_size)]
 
     # Posiciona Porta-Avião.
     print('\nPosicionando porta-avião')
-    place_ship(board, board_size, ships['P'])
-
+    place_ship(player_board, board_size, ships['P'])
+    print_game(
+        ships, num_ships,
+        {'player': player_board, 'enemy': enemy_board},
+        {'player': 0, 'enemy': 0}
+    )
+    
     # Posiciona Navios-Tanque.
     for i in range(1, 3):
         print('\nPosicionando navio-tanque nº {}'.format(i))
-        place_ship(board, board_size, ships['T'])
-
+        place_ship(player_board, board_size, ships['T'])
+        print_game(
+            ships, num_ships,
+            {'player': player_board, 'enemy': enemy_board},
+            {'player': 0, 'enemy': 0}
+        )
+        
     # Posiciona Contratorpedeiros.
     for i in range(1, 4):
         print('\nPosicionando contratorpedeiro nº {}'.format(i))
-        place_ship(board, board_size, ships['C'])
+        place_ship(player_board, board_size, ships['C'])
+        print_game(
+            ships, num_ships,
+            {'player': player_board, 'enemy': enemy_board},
+            {'player': 0, 'enemy': 0}
+        )
 
     # Posiciona Submarinos.
     for i in range(1, 5):
         print('\nPosicionando submarino nº {}'.format(i))
-        place_ship(board, board_size, ships['S'])
+        place_ship(player_board, board_size, ships['S'])
+        print_game(
+            ships, num_ships,
+            {'player': player_board, 'enemy': enemy_board},
+            {'player': 0, 'enemy': 0}
+        )
     
     return board
 
