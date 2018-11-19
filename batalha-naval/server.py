@@ -143,7 +143,7 @@ def start_server():
     """
     
     host = util.get_address()
-    port = 5000
+    port = int(input('Insira a porta de conexão: '))
 
     # Cria o socket do servnameor, declarando a família do protocolo
     # através do parâmetro AF_INET, bem como o protocolo TCP,
