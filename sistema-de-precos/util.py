@@ -25,11 +25,16 @@ def get_address():
 
         return address
 
-def haversine(lon1, lat1, lon2, lat2, radius):
+def haversine(coord, center, radius):
     """
     Calula se uma latitude/longitude está dentro de uma área circular
     com latitude/longitude conhecidos (especificado em graus decimais)
     """
+    lat1 = coord[0]
+    lon1 = coord[1]
+    lat2 = center[0]
+    lon2 = center[1]
+
     # Converte graus decimais em radianos
     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
 
@@ -38,5 +43,5 @@ def haversine(lon1, lat1, lon2, lat2, radius):
     dlat = lat2 - lat1 
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
     c = 2 * asin(sqrt(a)) 
-    r = radius # 6371 Raio da terra em kilometros. Use 3956 para milhas
-    return c * r
+    r = 6371 # 6371 Raio da terra em kilometros. Use 3956 para milhas
+    return True if (c * r) > radius else False

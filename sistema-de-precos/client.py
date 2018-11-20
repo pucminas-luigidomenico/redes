@@ -15,7 +15,7 @@ def input_type():
     valid_type = False
     while not valid_type:
         try:
-            t = input('Insira o tipo de mensagem (Dados: D, Pesquisa: P): ')
+            t = input('\nInsira o tipo de mensagem (Dados: D, Pesquisa: P): ')
             t = t.upper()
 
             if t not in ['D', 'P']:
@@ -149,6 +149,16 @@ def start_system(id_msg, client, addr):
         }).encode()
     
         client.sendto(data, addr)
+
+        try:
+            client.settimeout(5.0)
+            msg, _ = client.recvfrom(1024)
+            print('Confirmado: {}'.format(msg.decode()))
+
+        except Exception as ex:
+            print('Retransmissão...')
+            client.sendto(data, addr)
+
     else:
         radius = input_radius()
         center = input_center()
@@ -162,15 +172,18 @@ def start_system(id_msg, client, addr):
         }).encode()
 
         client.sendto(data, addr)
-    
-    try:
-        client.settimeout(5.0)
-        msg, _ = client.recvfrom(1024)
-        print('Confirmado: {}'.format(msg.decode()))
 
-    except Exception as ex:
-        print('Retransmissão...')
-        client.sendto(data, addr)
+        try:
+            client.settimeout(5.0)
+            msg, _ = client.recvfrom(1024)
+            print('\nConfirmado: {}'.format(msg.decode()))
+
+        except Exception as ex:
+            print('\nRetransmissão...')
+            client.sendto(data, addr)
+
+        msg, _ = client.recvfrom(1024)
+        print('\nMenor Valor: {}'.format(msg.decode()))
 
 if __name__ == '__main__':
     prepare_system()

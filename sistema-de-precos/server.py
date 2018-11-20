@@ -2,6 +2,7 @@
 import json
 import socket
 import struct
+import sys
 
 # Local
 import util
@@ -10,24 +11,33 @@ def prepare_system(server, arquivo):
     msg, client = server.recvfrom(1024)
     j_msg = json.loads(msg.decode())
 
+    server.sendto(str(j_msg['id']).encode(), client)
+
     if j_msg['type'] == 'D':
-        
-        data = json.dumps({
+
+        json.dump({
             'fuel': j_msg['fuel'], 
             'price': j_msg['price'], 
             'coord': j_msg['coord']
-        })
-
-        arquivo.write(data)
+        }, arquivo)
         arquivo.write('\n')
         arquivo.flush()
     
     else:
-        #data = arquivo.read()
-        print('Teste')
-    
+        arquivo.seek(0)
+        data = arquivo.readlines() #json.load(arquivo)
+        
+        menor = sys.maxsize
 
-    server.sendto(str(j_msg['id']).encode(), client)
+        for i in range(len(data)):
+            station = json.loads(data[i])
+            
+            if util.haversine(station['coord'], j_msg['center'], j_msg['radius']) \
+            and station['fuel'] == j_msg['fuel'] \
+            and station['price'] < menor:
+                menor = station ['price']
+
+        server.sendto(str(menor).encode(), client)
 
 def start_server():
     """ Inicializa o servidor e espera por conexões. Quando

@@ -1,2 +1,5 @@
 {"fuel": 0, "price": 500, "coord": [500, 500]}
-{"fuel": 2, "price": 600, "coord": [600, 600]}
+{"fuel": 2, "price": 8000, "coord": [600, 400]}
+{"fuel": 0, "price": 600, "coord": [80, 40]}
+{"fuel": 1, "price": 900, "coord": [60, 40]}
+{"fuel": 1, "price": 300, "coord": [40, 50]}
