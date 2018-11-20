@@ -2,6 +2,7 @@
 import json
 import socket
 import struct
+import select
 
 def input_tipo():
     """ Retorna o tipo de mensagem a ser enviada para os servidor (dados
@@ -25,9 +26,6 @@ def input_tipo():
             print('Tipo de mensagem inválido!')
             
     return 1 if t == 'D' else 0
-
-def id_menssagem():
-    return 0
 
 def input_comb():
     """ Retorna o tipo de combustível(díesel, álcool ou gasolina).
@@ -126,14 +124,15 @@ def prepare_system():
     # Recebe dados iniciais do sistema.
     # A função <struct.unpack> retorna uma tupla que, nesse caso,
     # contém apenas um elemento.
+    id_msg = 0
     while True:
-        start_system(client, addr)
+        start_system(id_msg, client, addr)
+        id_msg += 1
 
     client.close()
 
-def start_system(client, addr):
+def start_system(id_msg, client, addr):
     tipo = input_tipo()
-    id_msg = id_menssagem()
     id_comb = input_comb()
 
     if tipo == 1:
@@ -161,6 +160,15 @@ def start_system(client, addr):
             'center': center 
         }).encode()
 
+        client.sendto(data, addr)
+    
+    try:
+        client.settimeout(5.0)
+        msg, _ = client.recvfrom(1024)
+        print('Confirmado: {}'.format(msg))
+
+    except Exception as ex:
+        print('Retransmissão')
         client.sendto(data, addr)
 
 if __name__ == '__main__':
