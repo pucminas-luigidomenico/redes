@@ -1,7 +1,7 @@
 #Externo
+import json
 import socket
 import struct
-import json
 
 # Local
 import util
@@ -10,23 +10,24 @@ def prepare_system(server, arquivo):
     msg, client = server.recvfrom(1024)
     j_msg = json.loads(msg.decode())
 
-    print(j_msg)
-
-    if j_msg['tipo'] == 'D':
+    if j_msg['type'] == 'D':
+        
         data = json.dumps({
-            'comb': j_msg['comb'], 
-            'preco': j_msg['preco'], 
+            'fuel': j_msg['fuel'], 
+            'price': j_msg['price'], 
             'coord': j_msg['coord']
         })
 
         arquivo.write(data)
         arquivo.write('\n')
         arquivo.flush()
+    
     else:
         #data = arquivo.read()
         print('Teste')
+    
 
-    server.sendto(str(j_msg['id']).encode(), (client[0], server.getsockname()[1]))
+    server.sendto(str(j_msg['id']).encode(), client)
 
 def start_server():
     """ Inicializa o servidor e espera por conexões. Quando

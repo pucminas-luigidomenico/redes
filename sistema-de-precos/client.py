@@ -4,7 +4,7 @@ import socket
 import struct
 import select
 
-def input_tipo():
+def input_type():
     """ Retorna o tipo de mensagem a ser enviada para os servidor (dados
     ou pesquisa).
 
@@ -12,8 +12,8 @@ def input_tipo():
     0 para pesquisa.
     """
     
-    valid_tip = False
-    while not valid_tip:
+    valid_type = False
+    while not valid_type:
         try:
             t = input('Insira o tipo de mensagem (Dados: D, Pesquisa: P): ')
             t = t.upper()
@@ -21,34 +21,34 @@ def input_tipo():
             if t not in ['D', 'P']:
                 raise Exception()
 
-            valid_tip = True
+            valid_type = True
         except Exception:
             print('Tipo de mensagem inválido!')
             
-    return 1 if t == 'D' else 0
+    return t
 
-def input_comb():
+def input_fuel():
     """ Retorna o tipo de combustível(díesel, álcool ou gasolina).
 
     @return inteiro representando o tipo, sendo 0 para diesel,
     1 para álcool e 2 para gasolina.
     """
     
-    valid_comb = False
-    while not valid_comb:
+    valid_fuel = False
+    while not valid_fuel:
         try:
             c = int(input('Insira o tipo de combustível (Díesel: 0, Álcool: 1, Gasolina: 2): '))
 
             if c not in [0, 1, 2]:
                 raise Exception()
 
-            valid_comb = True
+            valid_fuel = True
         except Exception:
             print('Tipo de combustível inválido!')
             
     return c
 
-def input_preco():
+def input_price():
     """ Retorna o preço do combustível
     """
 
@@ -62,15 +62,15 @@ def input_preco():
 
     return p
 
-def input_raio():
+def input_radius():
     """ Retorna o raio da pesquisa
     """
 
-    valid_rai = False
-    while not valid_rai:
+    valid_radius = False
+    while not valid_radius:
         try:
             r = int(input('Insira o raio da pesquisa: '))
-            valid_rai = True
+            valid_radius = True
         except Exception:
             print('Raio inválido!')
 
@@ -114,7 +114,7 @@ def prepare_system():
     port = int(input('Insira a porta para conexão: '))
 
     # Cria o socket do servnameor, declarando a família do protocolo
-    # através do parâmetro AF_INET, bem como o protocolo TCP,
+    # através do parâmetro AF_INET, bem como o protocolo UDP,
     # através do parâmetro SOCKET_STREAM.
     client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     addr = (host, port)
@@ -132,31 +132,32 @@ def prepare_system():
     client.close()
 
 def start_system(id_msg, client, addr):
-    tipo = input_tipo()
-    id_comb = input_comb()
+    data = ''
+    type_msg = input_type()
+    id_fuel = input_fuel()
 
-    if tipo == 1:
-        preco = input_preco()
+    if type_msg == 'D':
+        price = input_price()
         coord = input_coord()
 
         data = json.dumps({
-            'tipo': 'D', 
+            'type': 'D', 
             'id': id_msg, 
-            'comb': id_comb, 
-            'preco': preco, 
+            'fuel': id_fuel, 
+            'price': price, 
             'coord': coord 
         }).encode()
-
+    
         client.sendto(data, addr)
     else:
-        raio = input_raio()
+        radius = input_radius()
         center = input_center()
 
         data = json.dumps({
-            'tipo': 'P', 
+            'type': 'P', 
             'id': id_msg, 
-            'comb': id_comb,
-            'raio': raio,
+            'fuel': id_fuel,
+            'radius': radius,
             'center': center 
         }).encode()
 
@@ -165,10 +166,10 @@ def start_system(id_msg, client, addr):
     try:
         client.settimeout(5.0)
         msg, _ = client.recvfrom(1024)
-        print('Confirmado: {}'.format(msg))
+        print('Confirmado: {}'.format(msg.decode()))
 
     except Exception as ex:
-        print('Retransmissão')
+        print('Retransmissão...')
         client.sendto(data, addr)
 
 if __name__ == '__main__':
