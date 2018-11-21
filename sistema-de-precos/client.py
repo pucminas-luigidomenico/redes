@@ -176,7 +176,10 @@ def start_system(id_msg, client, addr):
         try:
             client.settimeout(5.0)
             msg, _ = client.recvfrom(1024)
-            print('\nConfirmado: {}'.format(msg.decode()))
+            if id_msg == int(msg.decode()):
+                print('\nConfirmado: {}'.format(msg.decode()))
+            else:
+                print('\nMensagem não confirmada: {}'.format(id_msg))
 
         except Exception as ex:
             print('\nRetransmissão...')
