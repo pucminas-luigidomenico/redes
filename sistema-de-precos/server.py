@@ -13,6 +13,8 @@ def prepare_system(server, arquivo):
 
     server.sendto(str(j_msg['id']).encode(), client)
 
+    print('Mensagem {} recebida'.format(str(j_msg['id'])))
+
     if j_msg['type'] == 'D':
 
         json.dump({
