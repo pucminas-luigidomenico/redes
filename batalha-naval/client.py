@@ -263,8 +263,9 @@ def start_game(conn, ships, num_ships, boards, board_size):
 
             if res == util.MoveStatus.HIT:
                 boards['enemy'][i][j] = 'x'
-            else:
+            elif res == util.MoveStatus.MISS:
                 boards['enemy'][i][j] = '*'
+
         else:
             # Lê o resultado do movimento.
             length, = struct.unpack('!I', conn.recv(4))
@@ -279,18 +280,26 @@ def start_game(conn, ships, num_ships, boards, board_size):
             
             if res == util.MoveStatus.HIT:
                 boards['player'][i][j] = 'x '
-            else:
+            elif res == util.MoveStatus.MISS:
                 boards['player'][i][j] = '* '
-        
-        length, = struct.unpack('!I', conn.recv(4))
-        hits = json.loads(conn.recv(length).decode())
-        print_game(ships, num_ships, boards, hits)
 
-        data, = struct.unpack('!I', conn.recv(4))
-        winner = util.Winner(data)
+        if res != util.MoveStatus.INVALID:
+            length, = struct.unpack('!I', conn.recv(4))
+            hits = json.loads(conn.recv(length).decode())
 
-        data, = struct.unpack('!I', conn.recv(4))
-        turn = util.Turn(data)
+            input('Pressione ENTER para continuar...')
+            print_game(ships, num_ships, boards, hits)
+
+            data, = struct.unpack('!I', conn.recv(4))
+            turn = util.Turn(data)
+            
+            data, = struct.unpack('!I', conn.recv(4))
+            winner = util.Winner(data)
+
+    if winner == util.Winner.PLAYER:
+        print('Você venceu!!!')
+    else:
+        print('Você perdeu!!!')
         
 if __name__ == '__main__':
     prepare_game()

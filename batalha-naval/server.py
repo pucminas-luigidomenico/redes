@@ -8,7 +8,7 @@ import threading
 # Local
 import util
     
-def random_orientation():
+def random_direction():
     """ Retorna a orientação do navio a ser inserido. 
 
     @return tupla informando a orientação (1, 0) ou (0, 1).
@@ -18,10 +18,10 @@ def random_orientation():
     return (horizontal, 1 - horizontal)
 
 
-def place_random_ship(board, ship, ship_number, orientation):
+def place_random_ship(board, ship, ship_number, direction):
     """ Posiciona um navio randomicamente no tabuleiro. """
 
-    horizontal, vertical = orientation
+    horizontal, vertical = direction
     fit = False
     
     while not fit:
@@ -36,7 +36,7 @@ def place_random_ship(board, ship, ship_number, orientation):
                 board[r][c] != '-'):
 
                 break
-            elif s == ship['size']-1:
+            elif s == ship['size'] - 1:
                 fit = True
 
     # Se o navio couber na posição dada, ele é posicionado.
@@ -66,7 +66,7 @@ def random_board(ships, num_ships, board_size):
         for i in range(ship['quantity']):
             place_random_ship(
                 board, ships[key],
-                (i + 1), random_orientation()
+                (i + 1), random_direction()
             )
 
     return board
@@ -108,27 +108,46 @@ def prepare_game(conn):
 
     length, = struct.unpack('!I', conn.recv(4))
     player_board = json.loads(conn.recv(length).decode())
-    print(enemy_board)
 
     boards = {'player': player_board, 'enemy': enemy_board}
     start_game(conn, boards, board_size, ships, num_ships)
 
     
 def random_coord(board_size):
+    """ Retorna uma coordenada randômica.
+
+    @param board_size inteiro representando as dimensões
+    do tabuleiro.
+    """
+    
     i = random.randint(0, board_size - 1)
     j = random.randint(0, board_size - 1)
 
     return (i, j)
 
 
-def make_move(board, row, col):
-    """ Faz a jogada no tabuleiro e retorna o resultado. """
-    
-    res = util.MoveStatus.HIT
-    if board[row][col] == '-':
-        res = util.MoveStatus.MISS
-    elif board[row][col] == '*' or board[row][col] == 'x':
+def make_move(board, board_size, row, col):
+    """ Faz a jogada no tabuleiro e retorna o resultado.
+
+    @param board matriz representando tabuleiro de jogo.
+    @param board_size inteiro representando as dimensões do tabuleiro.
+    @param row inteiro representando a linha.
+    @param col inteiro representando a coluna.
+    """
+
+    res = None
+
+    if (row < 0 or row >= board_size or
+        col < 0 or col >= board_size or
+        board[row][col] == '*' or board[row][col] == 'x'):
+        
         res = util.MoveStatus.INVALID
+    elif board[row][col] == '-':
+        res = util.MoveStatus.MISS
+        board[row][col] = '*'
+    else:
+        res = util.MoveStatus.HIT
+        board[row][col] = 'x'
 
     return res
 
@@ -144,59 +163,96 @@ def start_game(conn, boards, board_size, ships, num_ships):
         hits_needed += ship['quantity'] * ship['size']
 
     while winner == util.Winner.NONE:
+        i = j = -1
+        direction = step = None
+        
         while turn == util.Turn.PLAYER:
-            length, = struct.unpack('!I', conn.recv(4))
+            length, = struct.unpack('!I', conn.recv(4))    
             i, j = json.loads(conn.recv(length).decode()).values()
-            res = make_move(boards['enemy'], i, j)
+            res = make_move(boards['enemy'], board_size, i, j)
 
             conn.send(struct.pack('!I', res.value))
             if res == util.MoveStatus.HIT:
                 hits['player'] += 1
-            else:
+            elif res == util.MoveStatus.MISS:
                 turn = util.Turn.ENEMY
+            else:
+                # Reexecutar loop para nova tentativa
+                continue
 
             data = json.dumps(hits).encode()
             conn.send(struct.pack('!I', len(data)))
             conn.send(data)
 
+            conn.send(struct.pack('!I', turn.value))
             if hits['player'] == hits_needed:
                 winner = util.Winner.PLAYER
                 conn.send(struct.pack('!I', winner.value))
                 break
             else:
                 conn.send(struct.pack('!I', winner.value))
-
-            conn.send(struct.pack('!I', turn.value))
+            
+            i = -1
+            j = -1
         
         while turn == util.Turn.ENEMY:
-            i, j = random_coord(board_size)
-            res = make_move(boards['player'], i, j)
+            if i != -1 and j != -1:
+                # Jogada anterior foi um acerto.
+                if not direction and not step:
+                    direction = random_direction()
+                    step = random.randint(-1, 0) | 1
+
+                horizontal, vertical = direction
+                i = i + step * vertical
+                j = j + step * horizontal
+
+                print(step)
+                print((horizontal, vertical))
+                print((i, j))
+            else:
+                # Nova tentativa aleatória.
+                i, j = random_coord(board_size)
+                
+            res = make_move(boards['player'], board_size, i, j)
             
             data = json.dumps({'row': i, 'col': j}).encode()
             conn.send(struct.pack('!I', len(data)))
             conn.send(data)
-            
-            print(res)
-            print(res.value)
+
             conn.send(struct.pack('!I', res.value))
             if res == util.MoveStatus.HIT:
                 hits['enemy'] += 1
-                # TODO: Continuar da posição
-            else:
+            elif res == util.MoveStatus.MISS:
                 turn = util.Turn.PLAYER
+                i = j = -1
+                direction = step = None
+            else:
+                # Jogada inválida: reexecutar loop para nova tentativa
+                direction = random_direction()
+                step = random.randint(-1, 0) | 1
+
+                if i < 0:
+                    i = 0
+                elif i >= board_size:
+                    i = board_size - 1
+
+                if j < 0:
+                    j = 0
+                elif j >= board_size:
+                    j = board_size - 1
+                continue
                 
             data = json.dumps(hits).encode()
             conn.send(struct.pack('!I', len(data)))
             conn.send(data)
 
+            conn.send(struct.pack('!I', turn.value))
             if hits['enemy'] == hits_needed:
                 winner = util.Winner.ENEMY
                 conn.send(struct.pack('!I', winner.value))
                 break
             else:
                 conn.send(struct.pack('!I', winner.value))
-
-            conn.send(struct.pack('!I', turn.value))
 
     conn.close()
 

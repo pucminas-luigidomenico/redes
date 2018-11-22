@@ -2,11 +2,11 @@ import socket
 import enum
 
 Turn = enum.Enum('Turn', 'ENEMY PLAYER')
-MoveStatus = enum.Enum('MoveStatus', 'HIT MISS')
-
+MoveStatus = enum.Enum('MoveStatus', 'HIT MISS INVALID')
 MoveResult = {
     MoveStatus.HIT: 'Acerto',
     MoveStatus.MISS: 'Erro',
+    MoveStatus.INVALID: 'Movimento Inválido',
 }
 
 Winner = enum.Enum('Winner', 'NONE SERVER PLAYER')
