@@ -237,7 +237,7 @@ def prepare_game():
     client.send(struct.pack('!I', len(data)))
     client.send(data)
     
-    print('\n\nMarquinhos Gameplay: Comeeeeeeeeça o jogo!')
+    print('\n\nJogo iniciado!')
     start_game(client, ships, num_ships, boards, board_size)
 
 
